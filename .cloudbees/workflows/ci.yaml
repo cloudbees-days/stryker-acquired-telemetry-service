@@ -1,0 +1,102 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: Acquired Telemetry Service CI
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  secrets-scan:
+    steps:
+      - name: Checkout
+        uses: cloudbees-io/checkout@v1
+      - name: Secrets Detection
+        uses: cloudbees-io/trufflehog-secret-scan-code@v1
+        with:
+          image-tag: v3
+
+  sast-scan:
+    needs:
+      - secrets-scan
+    steps:
+      - name: Checkout
+        uses: cloudbees-io/checkout@v1
+      - name: SAST Scan
+        uses: cloudbees-io/sonarqube-bundled-sast-scan-code@v2
+        with:
+          language: python
+
+  container-scan:
+    needs:
+      - secrets-scan
+    steps:
+      - name: Checkout
+        uses: cloudbees-io/checkout@v1
+      - name: Container Image Scan
+        uses: cloudbees-io/trivy-scan-container@v1
+        with:
+          image-location: stryker/acquired-telemetry-service
+          image-tag: latest
+
+  build:
+    needs:
+      - sast-scan
+      - container-scan
+    steps:
+      - name: Checkout
+        uses: cloudbees-io/checkout@v1
+      - name: Build telemetry service
+        uses: docker://python:3.11-slim
+        run: |
+          pip install -r requirements.txt --quiet 2>/dev/null || echo "No requirements.txt"
+          echo "Build complete — acquired-telemetry-service v1.1.${{ cloudbees.run_number }}"
+      - name: Register build artifact
+        uses: cloudbees-io/register-build-artifact@v2
+        with:
+          name: acquired-telemetry-service
+          version: 1.1.${{ cloudbees.run_number }}
+          url: https://github.com/cloudbees-days/stryker-acquired-telemetry-service
+      - name: Publish build evidence
+        uses: cloudbees-io/publish-evidence-item@v1
+        with:
+          content: |
+            ## Acquired Telemetry Service Build
+            - **Version**: 1.1.${{ cloudbees.run_number }}
+            - **Classification**: HIGH | acquisition | connected-device | telemetry | first-60-days
+            - **Acquisition Date**: 2026-04-15 | Assessment: INCOMPLETE
+            - **Owner**: CCI Operations
+          format: MARKDOWN
+
+  deploy-dev:
+    needs:
+      - build
+    environment: telemetry-dev
+    steps:
+      - name: Deploy to Dev
+        uses: docker://alpine:3.19
+        run: echo "Deploying acquired-telemetry-service v1.1.${{ cloudbees.run_number }} to DEV"
+      - name: Register deployed artifact
+        uses: cloudbees-io/register-deployed-artifact@v2
+        with:
+          name: acquired-telemetry-service
+          version: 1.1.${{ cloudbees.run_number }}
+          environment-name: telemetry-dev
+          url: https://github.com/cloudbees-days/stryker-acquired-telemetry-service
+
+  deploy-prod:
+    needs:
+      - deploy-dev
+    environment: telemetry-prod
+    steps:
+      - name: Deploy to Production
+        uses: docker://alpine:3.19
+        run: echo "Deploying acquired-telemetry-service v1.1.${{ cloudbees.run_number }} to PRODUCTION"
+      - name: Register deployed artifact
+        uses: cloudbees-io/register-deployed-artifact@v2
+        with:
+          name: acquired-telemetry-service
+          version: 1.1.${{ cloudbees.run_number }}
+          environment-name: telemetry-prod
+          url: https://github.com/cloudbees-days/stryker-acquired-telemetry-service
