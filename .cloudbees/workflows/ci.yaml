@@ -16,6 +16,7 @@ jobs:
         uses: cloudbees-io/trufflehog-secret-scan-code@v1
         with:
           image-tag: v3
+          branch: main
 
   sast-scan:
     needs:
@@ -57,7 +58,7 @@ jobs:
         with:
           name: acquired-telemetry-service
           version: 1.1.${{ cloudbees.run_number }}
-          url: https://github.com/cloudbees-days/stryker-acquired-telemetry-service
+          url: https://github.com/shozab-unify-examples/stryker-acquired-telemetry-service
       - name: Publish build evidence
         uses: cloudbees-io/publish-evidence-item@v1
         with:
@@ -83,7 +84,7 @@ jobs:
           name: acquired-telemetry-service
           version: 1.1.${{ cloudbees.run_number }}
           environment-name: telemetry-dev
-          url: https://github.com/cloudbees-days/stryker-acquired-telemetry-service
+          url: https://github.com/shozab-unify-examples/stryker-acquired-telemetry-service
 
   deploy-prod:
     needs:
@@ -99,4 +100,4 @@ jobs:
           name: acquired-telemetry-service
           version: 1.1.${{ cloudbees.run_number }}
           environment-name: telemetry-prod
-          url: https://github.com/cloudbees-days/stryker-acquired-telemetry-service
+          url: https://github.com/shozab-unify-examples/stryker-acquired-telemetry-service
